@@ -8,6 +8,8 @@ from datetime import datetime, timedelta
 import random
 import uuid
 from dateutil import parser
+import plotly.express as px
+import plotly.graph_objects as go
 
 DB_FILE = "urms_demo.db"
 
@@ -155,7 +157,16 @@ def recommended_actions_for_rake(pending):
 
 # ---------- UI ----------
 st.set_page_config(page_title="URMS Depot Assistant - Single File Demo", layout="wide")
-st.title("URMS Depot Logistics Assistant — Standalone Demo")
+st.markdown("""<style>
+body { font-family: 'Inter', 'Segoe UI', sans-serif; background-color: #f5f7fa; }
+.main { background-color: #f5f7fa; }
+.risk-high { color: #ff2e2e; font-weight:700; background: #ffe6e6; padding: 8px 12px; border-radius: 6px; }
+.risk-med { color: #ff9000; font-weight:700; background: #fff4e6; padding: 8px 12px; border-radius: 6px; }
+.risk-low { color: #1e7e34; font-weight:700; background: #e6f7ed; padding: 8px 12px; border-radius: 6px; }
+.header-title { color: #1a365d; font-size: 2.5em; font-weight: 700; margin-bottom: 10px; }
+.stat-badge { display: inline-block; background: #e2e8f0; padding: 6px 12px; border-radius: 20px; margin: 4px 4px 4px 0; font-weight: 600; }
+</style>""", unsafe_allow_html=True)
+st.markdown("<div class='header-title'>🚛 URMS Depot Logistics Assistant</div>", unsafe_allow_html=True)
 
 init_db()
 

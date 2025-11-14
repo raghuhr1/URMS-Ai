@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 import random, uuid
 from dateutil import parser
 import plotly.express as px
+import plotly.graph_objects as go
 
 DB_FILE = "urms_demo_pro.db"
 
@@ -181,12 +182,24 @@ def recommended_actions_for_rake(pending):
 # -----------------------
 st.set_page_config(page_title="URMS Depot Assistant — Pro UI", layout="wide", initial_sidebar_state="expanded")
 st.markdown("""<style>
-body { font-family: 'Inter', sans-serif; }
+body { font-family: 'Inter', 'Segoe UI', sans-serif; background-color: #f5f7fa; }
+.main { background-color: #f5f7fa; }
 .small { font-size:0.9rem; color: #666; }
-.risk-high { color: #ff2e2e; font-weight:700; }
-.risk-med { color: #ff9000; font-weight:700; }
-.risk-low { color: #1e7e34; font-weight:700; }
-.kpi { background: linear-gradient(90deg,#f8f9fa,#ffffff); padding:12px; border-radius:8px; }
+.risk-high { color: #ff2e2e; font-weight:700; background: #ffe6e6; padding: 8px 12px; border-radius: 6px; }
+.risk-med { color: #ff9000; font-weight:700; background: #fff4e6; padding: 8px 12px; border-radius: 6px; }
+.risk-low { color: #1e7e34; font-weight:700; background: #e6f7ed; padding: 8px 12px; border-radius: 6px; }
+.kpi-card { 
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  padding: 20px; 
+  border-radius: 12px;
+  border: 1px solid #e0e3e8;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  margin-bottom: 12px;
+}
+.header-title { color: #1a365d; font-size: 2.5em; font-weight: 700; margin-bottom: 10px; }
+.section-title { color: #2d3748; font-size: 1.5em; font-weight: 600; margin: 20px 0 10px 0; border-bottom: 3px solid #4299e1; padding-bottom: 8px; }
+.action-card { background: #f0f4ff; border-left: 4px solid #4299e1; padding: 12px; border-radius: 8px; margin: 8px 0; }
+.stat-badge { display: inline-block; background: #e2e8f0; padding: 6px 12px; border-radius: 20px; margin: 4px 4px 4px 0; font-weight: 600; }
 </style>""", unsafe_allow_html=True)
 
 init_db()
@@ -212,29 +225,61 @@ if st.sidebar.button("Refresh data"):
     st.rerun()
 
 # Main header
-st.title("URMS — Depot Logistics Assistant (Pro UI Demo)")
-st.write("Interactive demo. Replace with FOIS, Kafka & ML services for production.")
+st.markdown("<div class='header-title'>🚛 URMS — Depot Logistics Assistant</div>", unsafe_allow_html=True)
+st.write("Real-time depot operations dashboard with AI-powered insights & optimization recommendations")
 
-# KPI row
+# KPI row - Enhanced
 rakes_df = db_get_rakes_df()
 total_pending = int(rakes_df['pending_count'].sum()) if not rakes_df.empty else 0
 avg_unload_rate = (rakes_df['unloaded_count'].sum() / max(len(rakes_df),1)) if not rakes_df.empty else 0
 total_dandw = int(sum(compute_d_and_w_risk(int(p))[1] for p in (rakes_df['pending_count'].tolist() if not rakes_df.empty else [])))
+total_rakes = len(rakes_df)
 
-k1, k2, k3, k4 = st.columns([1.4,1,1,1])
-k1.metric("Pending Wagons (total)", f"{total_pending}")
-k2.metric("Avg Unloaded / Rake", f"{avg_unload_rate:.1f}")
-k3.metric("Projected D&W (INR)", f"₹{total_dandw:,}")
-k4.metric("Rakes in System", f"{len(rakes_df)}")
+k1, k2, k3, k4 = st.columns(4)
+with k1:
+    st.markdown(f"""
+    <div class='kpi-card'>
+        <div style='color: #718096; font-size: 0.9rem; font-weight: 600;'>PENDING WAGONS</div>
+        <div style='color: #2d3748; font-size: 2.2em; font-weight: 700; margin: 8px 0;'>{total_pending}</div>
+        <div style='color: #a0aec0; font-size: 0.85rem;'>Across {total_rakes} rakes</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with k2:
+    st.markdown(f"""
+    <div class='kpi-card'>
+        <div style='color: #718096; font-size: 0.9rem; font-weight: 600;'>AVG UNLOAD RATE</div>
+        <div style='color: #48bb78; font-size: 2.2em; font-weight: 700; margin: 8px 0;'>{avg_unload_rate:.1f}</div>
+        <div style='color: #a0aec0; font-size: 0.85rem;'>Per rake</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with k3:
+    st.markdown(f"""
+    <div class='kpi-card'>
+        <div style='color: #718096; font-size: 0.9rem; font-weight: 600;'>D&W RISK</div>
+        <div style='color: #ed8936; font-size: 2.2em; font-weight: 700; margin: 8px 0;'>₹{total_dandw:,}</div>
+        <div style='color: #a0aec0; font-size: 0.85rem;'>Potential loss</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with k4:
+    st.markdown(f"""
+    <div class='kpi-card'>
+        <div style='color: #718096; font-size: 0.9rem; font-weight: 600;'>ACTIVE RAKES</div>
+        <div style='color: #4299e1; font-size: 2.2em; font-weight: 700; margin: 8px 0;'>{total_rakes}</div>
+        <div style='color: #a0aec0; font-size: 0.85rem;'>In system</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 st.markdown("---")
 
 # Rake list + filters
-left, right = st.columns([2,1])
+left, right = st.columns([2.5,1.5])
 with left:
-    st.subheader("Rakes — Overview")
+    st.markdown("<div class='section-title'>📊 Rakes — Overview & Status</div>", unsafe_allow_html=True)
     if rakes_df.empty:
-        st.info("No rakes in system. Create one from the sidebar.")
+        st.info("ℹ️ No rakes in system. Create one from the sidebar.")
     else:
         # prepare display
         display = rakes_df[['rake_id','fnr','current_station','unloaded_count','pending_count','eta_dt']].copy()
@@ -245,72 +290,110 @@ with left:
         # show as interactive table with small sparkline: use bar chart to show pending distribution
         st.dataframe(display.rename(columns={
             'rake_id':'Rake ID','fnr':'FNR','current_station':'Station','unloaded_count':'Unloaded','pending_count':'Pending','eta':'ETA','risk':'Risk'
-        }).reset_index(drop=True), height=300)
+        }).reset_index(drop=True), height=320, use_container_width=True)
 
-        st.markdown("**Pending distribution**")
-        # bar chart
-        chart_df = display[['rake_id','pending_count']].set_index('rake_id')
-        st.bar_chart(chart_df)
+        # Visualizations
+        tab1, tab2 = st.tabs(["📈 Pending Distribution", "⏱️ ETA Timeline"])
+        
+        with tab1:
+            col1, col2 = st.columns(2)
+            with col1:
+                chart_df = display[['rake_id','pending_count']].sort_values('pending_count', ascending=True)
+                fig_bar = px.bar(chart_df, y='rake_id', x='pending_count', orientation='h',
+                                labels={'pending_count':'Pending Wagons', 'rake_id':'Rake ID'}, 
+                                color='pending_count', color_continuous_scale='RdYlGn_r', 
+                                title="Pending Wagons by Rake")
+                fig_bar.update_layout(height=400, showlegend=False)
+                st.plotly_chart(fig_bar, use_container_width=True)
+            
+            with col2:
+                risk_counts = display['risk'].value_counts()
+                colors_map = {'HIGH': '#ff2e2e', 'MEDIUM': '#ff9000', 'LOW': '#1e7e34'}
+                fig_pie = px.pie(values=risk_counts.values, names=risk_counts.index, 
+                                title="Risk Distribution", color=risk_counts.index,
+                                color_discrete_map=colors_map)
+                fig_pie.update_layout(height=400)
+                st.plotly_chart(fig_pie, use_container_width=True)
+        
+        with tab2:
+            if not display['eta_dt'].isna().all():
+                display_eta = display[['rake_id', 'eta_dt']].dropna()
+                display_eta = display_eta.sort_values('eta_dt')
+                fig_timeline = px.scatter(display_eta, x='eta_dt', y='rake_id', 
+                                        labels={'eta_dt':'Expected Arrival','rake_id':'Rake ID'},
+                                        title="ETA Timeline")
+                fig_timeline.update_traces(marker=dict(size=12, color='#4299e1'))
+                fig_timeline.update_layout(height=400)
+                st.plotly_chart(fig_timeline, use_container_width=True)
 
 with right:
-    st.subheader("Quick Actions")
+    st.markdown("<div class='section-title'>⚡ Quick Actions</div>", unsafe_allow_html=True)
     sel_rake = st.selectbox("Select Rake", options=(rakes_df['rake_id'].tolist() if not rakes_df.empty else [""]))
     if sel_rake:
-        st.markdown("### Selected: " + (sel_rake or "—"))
+        st.markdown(f"### ✅ {sel_rake}")
         row = db_get_rake(sel_rake)
         if row:
             _, fnr, created_ts, station, eta_iso, wagon_details_text, raw = row
             w_items = parse_wagon_details(wagon_details_text)
             pending = sum(1 for w in w_items if w['status'].upper() != 'UNLOADED')
             unloaded = sum(1 for w in w_items if w['status'].upper() == 'UNLOADED')
-            st.markdown(f"**Station:** {station}  \n**FNR:** {fnr}  \n**Unloaded / Pending:** {unloaded} / {pending}")
+            
+            st.markdown(f"""
+            <div class='stat-badge'>📍 {station}</div>
+            <div class='stat-badge'>🔢 FNR: {fnr}</div>
+            <div style='margin: 12px 0;'>
+                <strong>Wagon Status:</strong><br>
+                ✓ Unloaded: {unloaded} | ⏳ Pending: {pending}
+            </div>
+            """, unsafe_allow_html=True)
+            
             risk, dem = compute_d_and_w_risk(pending)
             if risk == "HIGH":
-                st.markdown(f"<span class='risk-high'>D&W Risk: {risk} • ₹{dem:,}</span>", unsafe_allow_html=True)
+                st.markdown(f"<div class='risk-high'>🔴 D&W Risk: {risk} — ₹{dem:,}</div>", unsafe_allow_html=True)
             elif risk == "MEDIUM":
-                st.markdown(f"<span class='risk-med'>D&W Risk: {risk} • ₹{dem:,}</span>", unsafe_allow_html=True)
+                st.markdown(f"<div class='risk-med'>🟠 D&W Risk: {risk} — ₹{dem:,}</div>", unsafe_allow_html=True)
             else:
-                st.markdown(f"<span class='risk-low'>D&W Risk: {risk} • ₹{dem:,}</span>", unsafe_allow_html=True)
+                st.markdown(f"<div class='risk-low'>🟢 D&W Risk: {risk} — ₹{dem:,}</div>", unsafe_allow_html=True)
 
-            st.markdown("----")
-            st.subheader("Actions for this rake")
-            assign_trucks_str = st.text_input("Truck IDs (comma separated)", value="TRK-101,TRK-102")
-            lane = st.text_input("Lane from", value="Yard-A")
-            reason = st.text_input("Reason", value="Resolve backlog")
-            if st.button("Assign Trucks to Rake"):
+            st.markdown("---")
+            st.markdown("**Truck Assignment**")
+            assign_trucks_str = st.text_input("Truck IDs (comma separated)", value="TRK-101,TRK-102", key="trucks")
+            lane = st.text_input("Lane from", value="Yard-A", key="lane")
+            reason = st.text_input("Reason", value="Resolve backlog", key="reason")
+            if st.button("🚚 Assign Trucks to Rake", use_container_width=True):
                 trucks = [t.strip() for t in assign_trucks_str.split(",") if t.strip()]
                 tid = db_insert_assignment(sel_rake, trucks, lane, reason)
-                st.success(f"Assigned {len(trucks)} trucks. Task ID: {tid}")
+                st.success(f"✓ Assigned {len(trucks)} trucks. Task ID: {tid}")
                 st.rerun()
 
-            with st.expander("Create exception / case"):
+            with st.expander("⚠️ Create Exception / Case"):
                 wagon_choices = [w['wagon_no'] for w in w_items]
-                cw = st.selectbox("Wagon", options=wagon_choices)
-                ctype = st.selectbox("Case Type", ["SHORTAGE","DAMAGE","MISSING_WAGON","OTHER"])
-                reporter = st.text_input("Reported by", value="depot_user_01")
-                details = st.text_area("Details", value="")
-                if st.button("Create Case"):
+                cw = st.selectbox("Wagon", options=wagon_choices, key="wagon_sel")
+                ctype = st.selectbox("Case Type", ["SHORTAGE","DAMAGE","MISSING_WAGON","OTHER"], key="case_type")
+                reporter = st.text_input("Reported by", value="depot_user_01", key="reporter")
+                details = st.text_area("Details", value="", key="details")
+                if st.button("📝 Create Case", use_container_width=True):
                     cid = db_insert_case(sel_rake, cw, ctype, reporter, details or "Auto note")
-                    st.success(f"Case created: {cid}")
+                    st.success(f"✓ Case created: {cid}")
                     st.rerun()
 
-            st.markdown("----")
-            st.subheader("ETA prediction (interactive)")
-            dist = st.number_input("Remaining distance (km)", value=150.0)
-            speed = st.number_input("Estimated avg speed (kmph)", value=30.0)
-            if st.button("Predict ETA"):
+            st.markdown("---")
+            st.markdown("**ETA Prediction**")
+            dist = st.number_input("Remaining distance (km)", value=150.0, key="dist")
+            speed = st.number_input("Estimated avg speed (kmph)", value=30.0, key="speed")
+            if st.button("🕐 Predict ETA", use_container_width=True):
                 mins = simple_eta_predict(dist, speed)
                 predicted_ts = datetime.utcnow() + timedelta(minutes=mins)
-                st.info(f"Predicted ETA in {mins} minutes → {predicted_ts.strftime('%Y-%m-%d %H:%M UTC')}")
+                st.info(f"⏱️ Predicted ETA in {mins} minutes → {predicted_ts.strftime('%Y-%m-%d %H:%M UTC')}")
                 log_activity("INFO","ETA","Predicted ETA for "+sel_rake)
 
 st.markdown("---")
 # Lower area: details & charts
-st.subheader("Rake Details & Wagons")
-colA, colB = st.columns([2,1])
+st.markdown("<div class='section-title'>📋 Rake Details & Wagon Status</div>", unsafe_allow_html=True)
+colA, colB, colC = st.columns([1.8,1,1.2])
 with colA:
     if not rakes_df.empty:
-        selected = st.selectbox("Choose Rake to inspect", options=rakes_df['rake_id'].tolist())
+        selected = st.selectbox("Choose Rake to inspect", options=rakes_df['rake_id'].tolist(), key="detail_rake")
         row = db_get_rake(selected)
         if row:
             _, fnr, created_ts, station, eta_iso, wagon_text, raw = row
@@ -320,26 +403,88 @@ with colA:
             unloaded = sum(1 for w in items if w['status'].upper()=="UNLOADED")
             total = len(items)
             pct = int(0 if total==0 else (unloaded/total)*100)
-            st.write(f"Unloaded: {unloaded} / {total}")
-            st.progress(pct)
-            st.table(df_w)
+            
+            st.markdown(f"""
+            **Progress:** {unloaded} / {total} unloaded ({pct}%)
+            """)
+            st.progress(pct / 100)
+            
+            # Enhanced wagon table with colors
+            df_display = df_w.copy()
+            df_display['Status'] = df_display['status'].apply(lambda x: '✓ UNLOADED' if x.upper() == 'UNLOADED' else '⏳ PENDING')
+            st.dataframe(df_display[['wagon_no','Status']].rename(columns={'wagon_no':'Wagon #'}), 
+                        use_container_width=True, height=300)
+            
 with colB:
-    st.subheader("Activity Log (recent)")
-    log_df = db_get_activity_df(50)
-    if log_df.empty:
-        st.info("No activity yet.")
+    st.markdown("<div style='text-align: center; padding: 20px;'><strong>Activity Status</strong></div>", unsafe_allow_html=True)
+    if not rakes_df.empty:
+        log_df = db_get_activity_df(20)
+        if not log_df.empty:
+            recent = log_df.head(5)
+            for _, row in recent.iterrows():
+                level_icon = "🔴" if row['level'] == 'WARN' else "ℹ️"
+                st.write(f"{level_icon} **{row['source']}**: {row['message'][:40]}")
+        else:
+            st.info("No recent activity")
+
+with colC:
+    st.markdown("<div style='text-align: center; padding: 20px;'><strong>Case Summary</strong></div>", unsafe_allow_html=True)
+    cases_df = db_get_cases_df()
+    if not cases_df.empty:
+        case_counts = cases_df['case_type'].value_counts()
+        st.bar_chart(case_counts)
     else:
-        st.dataframe(log_df[['ts','level','source','message']].head(50))
+        st.info("No cases")
 
 st.markdown("---")
-# Analytics chart
-st.subheader("Analytics - Pending wagons per rake")
+# Analytics charts section
+st.markdown("<div class='section-title'>📊 Advanced Analytics</div>", unsafe_allow_html=True)
+
 if not rakes_df.empty:
-    chart_df = rakes_df[['rake_id','pending_count']].sort_values('pending_count', ascending=False)
-    fig = px.bar(chart_df, x='rake_id', y='pending_count', labels={'rake_id':'Rake','pending_count':'Pending Wagons'}, title="Pending Wagons by Rake")
-    st.plotly_chart(fig, use_container_width=True)
+    ana1, ana2 = st.columns(2)
+    
+    with ana1:
+        # Pending vs Unloaded comparison
+        chart_df = rakes_df[['rake_id','pending_count','unloaded_count']].sort_values('pending_count', ascending=False)
+        fig_comp = px.bar(chart_df, x='rake_id', y=['pending_count','unloaded_count'],
+                         labels={'rake_id':'Rake ID', 'pending_count':'Pending', 'unloaded_count':'Unloaded'},
+                         title="Pending vs Unloaded Wagons by Rake",
+                         barmode='group', color_discrete_map={'pending_count':'#ed8936', 'unloaded_count':'#48bb78'})
+        fig_comp.update_layout(height=400)
+        st.plotly_chart(fig_comp, use_container_width=True)
+    
+    with ana2:
+        # Risk heatmap
+        display_risk = rakes_df[['rake_id','pending_count']].copy()
+        display_risk['risk_level'] = display_risk['pending_count'].apply(lambda x: 1 if compute_d_and_w_risk(int(x))[0] == 'HIGH' else (2 if compute_d_and_w_risk(int(x))[0] == 'MEDIUM' else 3))
+        fig_heat = px.bar(display_risk.sort_values('pending_count', ascending=False), 
+                         x='rake_id', y='risk_level',
+                         color='risk_level', color_continuous_scale='RdYlGn',
+                         labels={'rake_id':'Rake ID', 'risk_level':'Risk Level'},
+                         title="Risk Level by Rake")
+        fig_heat.update_layout(height=400, showlegend=False)
+        st.plotly_chart(fig_heat, use_container_width=True)
+    
+    # Assignment history
+    st.markdown("<div style='margin-top: 20px;'></div>", unsafe_allow_html=True)
+    assign_df = db_get_assignments_df()
+    if not assign_df.empty:
+        st.subheader("🚚 Recent Truck Assignments")
+        display_assign = assign_df[['rake_id','truck_ids','lane_from','reason','created_ts']].head(10)
+        display_assign['created_ts'] = display_assign['created_ts'].dt.strftime("%Y-%m-%d %H:%M")
+        st.dataframe(display_assign.rename(columns={'rake_id':'Rake','truck_ids':'Trucks','lane_from':'Lane','reason':'Reason','created_ts':'Time'}), 
+                    use_container_width=True)
+    
+    # Cases overview
+    cases_df = db_get_cases_df()
+    if not cases_df.empty:
+        st.subheader("⚠️ Exception Cases")
+        display_cases = cases_df[['case_id','rake_id','wagon_no','case_type','reported_by','reported_ts']].head(10)
+        display_cases['reported_ts'] = display_cases['reported_ts'].dt.strftime("%Y-%m-%d %H:%M")
+        st.dataframe(display_cases.rename(columns={'case_id':'Case ID','rake_id':'Rake','wagon_no':'Wagon','case_type':'Type','reported_by':'Reporter','reported_ts':'Time'}), 
+                    use_container_width=True)
 else:
-    st.info("No data to show.")
+    st.info("📊 No analytics data available. Create a rake to populate the dashboard.")
 
 st.markdown("---")
-st.caption("Demo UI: replace backend calls with FOIS/Kafka/RAG/ML services for production.")
+st.caption("🚀 Pro Depot Dashboard — Replace backend calls with FOIS/Kafka/RAG/ML services for production.")
